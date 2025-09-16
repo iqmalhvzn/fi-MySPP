@@ -2,30 +2,35 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\FileUpload; // <-- IMPORT TAMBAHAN
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 class Biodata extends Page implements HasForms
 {
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
-
     protected static string $view = 'filament.pages.biodata';
 
+
+
+    protected static ?string $title = 'Profil Saya';
+
     public ?array $data = [];
+    public User $user;
 
     public function mount(): void
     {
-        $user = Auth::user();
-        $this->form->fill($user->toArray());
+        $this->user = Auth::user();
+        $this->form->fill($this->user->toArray());
     }
 
     public function form(Form $form): Form
@@ -34,77 +39,57 @@ class Biodata extends Page implements HasForms
             ->schema([
                 TextInput::make('name')
                     ->label('Nama Lengkap')
-                    ->required(),
+                    ->required()
+                    ->live(onBlur: true),
+
                 TextInput::make('email')
                     ->label('Alamat Email')
                     ->email()
-                    ->required(),
+                    ->required()
+                    ->live(onBlur: true),
+
                 TextInput::make('phone')
                     ->label('Nomor Telepon')
-                    ->tel(),
-                TextInput::make('address')
-                    ->label('Alamat')
-                    ->columnSpanFull(),
+                    ->tel()
+                    ->live(onBlur: true),
 
-                // -- FIELD UPLOAD DITAMBAHKAN DI SINI --
                 FileUpload::make('image')
-                    ->label('Ganti Foto Profil')
+                    ->label('Foto Profil')
                     ->image()
-                    ->maxSize(2048) // 2MB
-                    ->disk('public') // Simpan di storage/app/public
-                    ->directory('profiles'), // Dalam folder 'profiles'
+                    ->disk('public')
+                    ->directory('profiles'),
 
+                // <-- FIELD SCAN IJAZAH DITAMBAHKAN DI SINI
                 FileUpload::make('scanijazah')
-                    ->label('Ganti Scan Ijazah')
-                    ->acceptedFileTypes(['application/pdf', 'image/*'])
-                    ->maxSize(5120) // 5MB
+                    ->label('Scan Ijazah')
+                    ->acceptedFileTypes(['image/*', 'application/pdf'])
                     ->disk('public')
                     ->directory('scanijazah'),
+
+                Textarea::make('address')
+                    ->label('Alamat')
+                    ->rows(3)
+                    ->columnSpanFull()
+                    ->live(onBlur: true),
             ])
-            ->columns(2) // Atur form menjadi 2 kolom
-            ->statePath('data');
+            ->columns(2)
+            ->statePath('data')
+            ->model($this->user);
     }
 
     public function updateBiodata(): void
     {
-        $user = Auth::user();
-        $originalData = $this->form->getState();
-
-        // Siapkan data untuk diupdate, kecuali file
-        $updateData = collect($originalData)->except(['image', 'scanijazah'])->all();
-
-        // Cek jika ada file FOTO PROFIL baru yang di-upload
-        if ($originalData['image'] instanceof \Illuminate\Http\UploadedFile) {
-            // Hapus file lama jika ada
-            if ($user->image) {
-                Storage::disk('public')->delete($user->image);
-            }
-            // Simpan file baru dan dapatkan path-nya
-            $updateData['image'] = $originalData['image']->store('profiles', 'public');
-        } else {
-            // Jika tidak ada file baru, pertahankan path file lama
-            $updateData['image'] = $originalData['image'];
-        }
-
-        // Cek jika ada file SCAN IJAZAH baru yang di-upload
-        if ($originalData['scanijazah'] instanceof \Illuminate\Http\UploadedFile) {
-            if ($user->scanijazah) {
-                Storage::disk('public')->delete($user->scanijazah);
-            }
-            $updateData['scanijazah'] = $originalData['scanijazah']->store('scanijazah', 'public');
-        } else {
-            $updateData['scanijazah'] = $originalData['scanijazah'];
-        }
-
-        // Update semua data ke database
-        $user->update($updateData);
-
-        // Reset form state setelah update agar preview gambar hilang
-        $this->form->fill($user->fresh()->toArray());
+        $this->user->update(
+            $this->form->getState()
+        );
 
         Notification::make()
-            ->title('Biodata berhasil diperbarui')
+            ->title('Berhasil!')
+            ->body('Biodata Anda telah berhasil diperbarui.')
             ->success()
             ->send();
+
+        // Refresh data di halaman setelah update
+        $this->form->fill($this->user->fresh()->toArray());
     }
 }
