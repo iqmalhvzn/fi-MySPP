@@ -15,11 +15,11 @@ class Transaction extends Model
         'department_id',
     ];
 
-    public function user()
+    public function users()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-    public function department()
+    public function departments()
     {
         return $this->belongsTo(Department::class, 'department_id');
     }

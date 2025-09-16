@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->integer('semester');
-            $table->decimal('cost', 10, 2);
+            $table->integer('cost');
             $table->timestamps();
         });
     }
